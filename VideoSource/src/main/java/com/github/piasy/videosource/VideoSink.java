@@ -3,6 +3,8 @@ package com.github.piasy.videosource;
 import com.github.piasy.videosource.webrtc.Logging;
 import com.github.piasy.videosource.webrtc.VideoCapturer;
 import com.github.piasy.videosource.webrtc.VideoRenderer;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Created by Piasy{github.com/Piasy} on 20/07/2017.
@@ -12,15 +14,15 @@ public class VideoSink implements VideoCapturer.CapturerObserver {
 
     private static final String TAG = "VideoSink";
 
-    private final VideoRenderer.Callbacks mCallbacks;
+    private final List<VideoRenderer.Callbacks> mCallbacks;
     private final MatrixHelper mMatrixHelper;
 
     private volatile boolean mFlipHorizontal;
     private volatile boolean mFlipVertical;
     private volatile float mRotateDegree;
 
-    public VideoSink(final VideoRenderer.Callbacks callbacks) {
-        mCallbacks = callbacks;
+    public VideoSink(final VideoRenderer.Callbacks... callbacks) {
+        mCallbacks = Arrays.asList(callbacks);
         mMatrixHelper = new MatrixHelper();
     }
 
@@ -60,6 +62,8 @@ public class VideoSink implements VideoCapturer.CapturerObserver {
 
         VideoRenderer.I420Frame frame = new VideoRenderer.I420Frame(width, height, rotation,
                 oesTextureId, transformMatrix, 0);
-        mCallbacks.renderFrame(frame);
+        for (VideoRenderer.Callbacks callbacks : mCallbacks) {
+            callbacks.renderFrame(frame);
+        }
     }
 }

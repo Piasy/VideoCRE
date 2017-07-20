@@ -1,7 +1,7 @@
 package com.github.piasy.videosource.example;
 
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
@@ -18,12 +18,14 @@ import com.github.piasy.videosource.webrtc.Logging;
 import com.github.piasy.videosource.webrtc.SurfaceViewRenderer;
 import com.github.piasy.videosource.webrtc.VideoCapturer;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class VideoActivity extends AppCompatActivity {
     private static final String TAG = "VideoActivity";
 
     private VideoSource mVideoSource;
-    private SurfaceViewRenderer mFullscreenVideoView;
+    private List<SurfaceViewRenderer> mVideoViews = new ArrayList<>();
     private VideoSink mVideoSink;
 
     @Override
@@ -31,8 +33,14 @@ public class VideoActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_video);
 
-        mFullscreenVideoView = (SurfaceViewRenderer) findViewById(R.id.mFullscreenVideoView);
-        mVideoSink = new VideoSink(mFullscreenVideoView);
+        SurfaceViewRenderer videoView1 = (SurfaceViewRenderer) findViewById(R.id.mVideoView1);
+        mVideoViews.add(videoView1);
+        SurfaceViewRenderer videoView2 = (SurfaceViewRenderer) findViewById(R.id.mVideoView2);
+        mVideoViews.add(videoView2);
+        SurfaceViewRenderer videoView3 = (SurfaceViewRenderer) findViewById(R.id.mVideoView3);
+        mVideoViews.add(videoView3);
+
+        mVideoSink = new VideoSink(videoView1, videoView2, videoView3);
 
         VideoConfig config = VideoConfig.builder()
                 .videoWidth(1280)
@@ -43,7 +51,9 @@ public class VideoActivity extends AppCompatActivity {
 
         mVideoSource = new VideoSource(getApplicationContext(), config, capturer, mVideoSink);
 
-        mFullscreenVideoView.init(mVideoSource.getRootEglBase().getEglBaseContext(), null);
+        for (SurfaceViewRenderer videoView : mVideoViews) {
+            videoView.init(mVideoSource.getRootEglBase().getEglBaseContext(), null);
+        }
 
         initView();
     }
@@ -67,7 +77,9 @@ public class VideoActivity extends AppCompatActivity {
         super.onDestroy();
 
         mVideoSource.destroy();
-        mFullscreenVideoView.release();
+        for (SurfaceViewRenderer videoView : mVideoViews) {
+            videoView.release();
+        }
     }
 
     private void initView() {
