@@ -15,16 +15,14 @@ import android.content.res.Resources.NotFoundException;
 import android.graphics.Point;
 import android.graphics.SurfaceTexture;
 import android.util.AttributeSet;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
 import android.view.TextureView;
-import com.github.piasy.videosource.webrtc.EglBase;
-import com.github.piasy.videosource.webrtc.EglRenderer;
-import com.github.piasy.videosource.webrtc.GlRectDrawer;
-import com.github.piasy.videosource.webrtc.Logging;
-import com.github.piasy.videosource.webrtc.RendererCommon;
-import com.github.piasy.videosource.webrtc.ThreadUtils;
-import com.github.piasy.videosource.webrtc.VideoRenderer;
+import org.webrtc.EglBase;
+import org.webrtc.EglRenderer;
+import org.webrtc.GlRectDrawer;
+import org.webrtc.Logging;
+import org.webrtc.RendererCommon;
+import org.webrtc.ThreadUtils;
+import org.webrtc.VideoRenderer;
 import java.util.concurrent.CountDownLatch;
 
 /**

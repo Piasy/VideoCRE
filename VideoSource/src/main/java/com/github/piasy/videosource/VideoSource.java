@@ -1,11 +1,11 @@
 package com.github.piasy.videosource;
 
 import android.content.Context;
-import com.github.piasy.videosource.webrtc.CameraVideoCapturer;
-import com.github.piasy.videosource.webrtc.EglBase;
-import com.github.piasy.videosource.webrtc.Logging;
-import com.github.piasy.videosource.webrtc.SurfaceTextureHelper;
-import com.github.piasy.videosource.webrtc.VideoCapturer;
+import org.webrtc.CameraVideoCapturer;
+import org.webrtc.EglBase;
+import org.webrtc.Logging;
+import org.webrtc.SurfaceTextureHelper;
+import org.webrtc.VideoCapturer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -115,5 +115,6 @@ public class VideoSource {
 
     public void destroy() {
         mEglBase.release();
+        mExecutor.shutdown();
     }
 }

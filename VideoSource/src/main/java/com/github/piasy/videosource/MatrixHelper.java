@@ -1,7 +1,7 @@
 package com.github.piasy.videosource;
 
 import android.opengl.Matrix;
-import com.github.piasy.videosource.webrtc.RendererCommon;
+import org.webrtc.RendererCommon;
 
 /**
  * Created by Piasy{github.com/Piasy} on 16/07/2017.

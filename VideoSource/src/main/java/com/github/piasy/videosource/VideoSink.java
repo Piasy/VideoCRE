@@ -1,8 +1,8 @@
 package com.github.piasy.videosource;
 
-import com.github.piasy.videosource.webrtc.Logging;
-import com.github.piasy.videosource.webrtc.VideoCapturer;
-import com.github.piasy.videosource.webrtc.VideoRenderer;
+import org.webrtc.Logging;
+import org.webrtc.VideoCapturer;
+import org.webrtc.VideoRenderer;
 import java.util.Arrays;
 import java.util.List;
 
@@ -61,7 +61,7 @@ public class VideoSink implements VideoCapturer.CapturerObserver {
         mMatrixHelper.rotate(transformMatrix, mRotateDegree);
 
         VideoRenderer.I420Frame frame = new VideoRenderer.I420Frame(width, height, rotation,
-                oesTextureId, transformMatrix, 0);
+                oesTextureId, transformMatrix, 0, timestamp);
         for (VideoRenderer.Callbacks callbacks : mCallbacks) {
             callbacks.renderFrame(frame);
         }
