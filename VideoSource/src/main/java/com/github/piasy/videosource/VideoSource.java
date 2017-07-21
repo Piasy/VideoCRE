@@ -1,13 +1,13 @@
 package com.github.piasy.videosource;
 
 import android.content.Context;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.webrtc.CameraVideoCapturer;
 import org.webrtc.EglBase;
 import org.webrtc.Logging;
 import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.VideoCapturer;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * Created by Piasy{github.com/Piasy} on 20/07/2017.
@@ -114,6 +114,7 @@ public class VideoSource {
     }
 
     public void destroy() {
+        mSurfaceTextureHelper.dispose();
         mEglBase.release();
         mExecutor.shutdown();
     }
