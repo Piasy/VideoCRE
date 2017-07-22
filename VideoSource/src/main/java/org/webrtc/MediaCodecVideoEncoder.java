@@ -20,6 +20,7 @@ import android.opengl.GLES20;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Surface;
+import com.github.piasy.videosource.MediaCodecCallback;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -75,6 +76,13 @@ public class MediaCodecVideoEncoder {
   private int height;
   private Surface inputSurface;
   private GlRectDrawer drawer;
+
+  // Thread that delivers encoded frames to the user callback.
+  private Thread outputThread;
+  private MediaCodecCallback callback;
+  // Whether the encoder is running.  Volatile so that the output thread can watch this value and
+  // exit when the encoder stops.
+  private volatile boolean running = false;
 
   private static final String VP8_MIME_TYPE = "video/x-vnd.on2.vp8";
   private static final String VP9_MIME_TYPE = "video/x-vnd.on2.vp9";
@@ -414,7 +422,7 @@ public class MediaCodecVideoEncoder {
   }
 
   public boolean initEncode(VideoCodecType type, int profile, int width, int height, int kbps, int fps,
-      EglBase.Context sharedContext) {
+      EglBase.Context sharedContext, MediaCodecCallback callback) {
     final boolean useSurface = sharedContext != null;
     Logging.d(TAG,
         "Java initEncode: " + type + ". Profile: " + profile + " : " + width + " x " + height
@@ -423,6 +431,7 @@ public class MediaCodecVideoEncoder {
     this.profile = profile;
     this.width = width;
     this.height = height;
+    this.callback = callback;
     if (mediaCodecThread != null) {
       throw new RuntimeException("Forgot to release()?");
     }
@@ -529,6 +538,11 @@ public class MediaCodecVideoEncoder {
       release();
       return false;
     }
+
+    running = true;
+    outputThread = createOutputThread();
+    outputThread.start();
+
     return true;
   }
 
@@ -607,6 +621,9 @@ public class MediaCodecVideoEncoder {
     }
     final CaughtException caughtException = new CaughtException();
     boolean stopHung = false;
+
+    running = false;
+    ThreadUtils.joinUninterruptibly(outputThread);
 
     if (mediaCodec != null) {
       // Run Mediacodec stop() and release() on separate thread since sometime
@@ -822,6 +839,77 @@ public class MediaCodecVideoEncoder {
     }
   }
 
+  private Thread createOutputThread() {
+    return new Thread() {
+      @Override
+      public void run() {
+        while (running) {
+          deliverEncodedImage();
+        }
+      }
+    };
+  }
+
+  private void deliverEncodedImage() {
+    try {
+      MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+      int index = mediaCodec.dequeueOutputBuffer(info, DEQUEUE_TIMEOUT);
+      if (index < 0) {
+        return;
+      }
+
+      ByteBuffer codecOutputBuffer = mediaCodec.getOutputBuffers()[index];
+      codecOutputBuffer.position(info.offset);
+      codecOutputBuffer.limit(info.offset + info.size);
+
+      if ((info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
+        Logging.d(TAG, "Config frame generated. Offset: " + info.offset + ". Size: " + info.size);
+        configData = ByteBuffer.allocateDirect(info.size);
+        configData.put(codecOutputBuffer);
+        // Log few SPS header bytes to check profile and level.
+        String spsData = "";
+        for (int i = 0; i < (info.size < 8 ? info.size : 8); i++) {
+          spsData += Integer.toHexString(configData.get(i) & 0xff) + " ";
+        }
+        Logging.d(TAG, spsData);
+      } else {
+        // MediaCodec doesn't care about Buffer position/remaining/etc so we can
+        // mess with them to get a slice and avoid having to pass extra
+        // (BufferInfo-related) parameters back to C++.
+        ByteBuffer outputBuffer = codecOutputBuffer.duplicate();
+        outputBuffer.position(info.offset);
+        outputBuffer.limit(info.offset + info.size);
+        reportEncodedFrame(info.size);
+
+        // Check key frame flag.
+        boolean isKeyFrame = (info.flags & MediaCodec.BUFFER_FLAG_SYNC_FRAME) != 0;
+        if (isKeyFrame) {
+          Logging.d(TAG, "Sync frame generated");
+        }
+        if (isKeyFrame && type == VideoCodecType.VIDEO_CODEC_H264) {
+          Logging.d(TAG, "Appending config frame of size " + configData.capacity()
+                         + " to output buffer with offset " + info.offset + ", size " + info.size);
+          // For H.264 key frame append SPS and PPS NALs at the start
+          ByteBuffer keyFrameBuffer = ByteBuffer.allocateDirect(configData.capacity() + info.size);
+          configData.rewind();
+          keyFrameBuffer.put(configData);
+          keyFrameBuffer.put(outputBuffer);
+          keyFrameBuffer.position(0);
+          callback.onEncodedFrame(
+                  new OutputBufferInfo(index, keyFrameBuffer, isKeyFrame, info.presentationTimeUs));
+          releaseOutputBuffer(index);
+        } else {
+          callback.onEncodedFrame(
+                  new OutputBufferInfo(index, outputBuffer.slice(), isKeyFrame,
+                          info.presentationTimeUs));
+          releaseOutputBuffer(index);
+        }
+      }
+    } catch (IllegalStateException e) {
+      Logging.e(TAG, "deliverOutput failed", e);
+    }
+  }
+
   private double getBitrateScale(int bitrateAdjustmentScaleExp) {
     return Math.pow(BITRATE_CORRECTION_MAX_SCALE,
         (double) bitrateAdjustmentScaleExp / BITRATE_CORRECTION_STEPS);
@@ -875,8 +963,7 @@ public class MediaCodecVideoEncoder {
 
   // Release a dequeued output buffer back to the codec for re-use.  Return
   // false if the codec is no longer operable.
-  public boolean releaseOutputBuffer(int index) {
-    checkOnMediaCodecThread();
+  private boolean releaseOutputBuffer(int index) {
     try {
       mediaCodec.releaseOutputBuffer(index, false);
       return true;

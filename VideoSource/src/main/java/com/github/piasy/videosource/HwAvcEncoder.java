@@ -1,10 +1,10 @@
 package com.github.piasy.videosource;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.webrtc.EglBase;
 import org.webrtc.MediaCodecVideoEncoder;
 import org.webrtc.VideoRenderer;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * Created by Piasy{github.com/Piasy} on 21/07/2017.
@@ -14,12 +14,12 @@ public class HwAvcEncoder implements VideoRenderer.Callbacks {
 
     private final ExecutorService mMediaCodecService;
     private final MediaCodecVideoEncoder mVideoEncoder;
-    private final EncodedFrameObserver mEncodedFrameObserver;
+    private final MediaCodecCallback mMediaCodecCallback;
 
-    public HwAvcEncoder(final EncodedFrameObserver encodedFrameObserver) {
+    public HwAvcEncoder(final MediaCodecCallback callback) {
         mMediaCodecService = Executors.newSingleThreadExecutor();
         mVideoEncoder = new MediaCodecVideoEncoder();
-        mEncodedFrameObserver = encodedFrameObserver;
+        mMediaCodecCallback = callback;
     }
 
     public void start(final EglBase eglBase) {
@@ -28,7 +28,7 @@ public class HwAvcEncoder implements VideoRenderer.Callbacks {
             public void run() {
                 mVideoEncoder.initEncode(MediaCodecVideoEncoder.VideoCodecType.VIDEO_CODEC_H264,
                         MediaCodecVideoEncoder.H264Profile.CONSTRAINED_BASELINE.getValue(),
-                        640, 360, 500, 60, eglBase.getEglBaseContext());
+                        640, 360, 500, 60, eglBase.getEglBaseContext(), mMediaCodecCallback);
             }
         });
     }
@@ -40,13 +40,6 @@ public class HwAvcEncoder implements VideoRenderer.Callbacks {
             public void run() {
                 mVideoEncoder.encodeTexture(false, frame.textureId, frame.samplingMatrix,
                         frame.timestamp / 1000);
-
-                MediaCodecVideoEncoder.OutputBufferInfo bufferInfo
-                        = mVideoEncoder.dequeueOutputBuffer();
-                if (bufferInfo != null) {
-                    mEncodedFrameObserver.onEncodedFrame(bufferInfo);
-                    mVideoEncoder.releaseOutputBuffer(bufferInfo.index);
-                }
             }
         });
     }
