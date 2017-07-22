@@ -855,6 +855,9 @@ public class MediaCodecVideoEncoder {
       MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
       int index = mediaCodec.dequeueOutputBuffer(info, DEQUEUE_TIMEOUT);
       if (index < 0) {
+        if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+          callback.onOutputFormatChanged(mediaCodec, mediaCodec.getOutputFormat());
+        }
         return;
       }
 
@@ -895,13 +898,12 @@ public class MediaCodecVideoEncoder {
           keyFrameBuffer.put(configData);
           keyFrameBuffer.put(outputBuffer);
           keyFrameBuffer.position(0);
-          callback.onEncodedFrame(
-                  new OutputBufferInfo(index, keyFrameBuffer, isKeyFrame, info.presentationTimeUs));
+          callback.onEncodedFrame(new OutputBufferInfo(index, keyFrameBuffer, isKeyFrame,
+                  info.presentationTimeUs), info);
           releaseOutputBuffer(index);
         } else {
-          callback.onEncodedFrame(
-                  new OutputBufferInfo(index, outputBuffer.slice(), isKeyFrame,
-                          info.presentationTimeUs));
+          callback.onEncodedFrame(new OutputBufferInfo(index, outputBuffer.slice(), isKeyFrame,
+                  info.presentationTimeUs), info);
           releaseOutputBuffer(index);
         }
       }

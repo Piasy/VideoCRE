@@ -9,7 +9,8 @@ import org.webrtc.MediaCodecVideoEncoder;
  */
 
 public interface MediaCodecCallback {
-    void onEncodedFrame(MediaCodecVideoEncoder.OutputBufferInfo frame);
+    void onEncodedFrame(MediaCodecVideoEncoder.OutputBufferInfo frame,
+            MediaCodec.BufferInfo bufferInfo);
 
     void onOutputFormatChanged(MediaCodec codec, MediaFormat format);
 }
