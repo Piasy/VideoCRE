@@ -16,6 +16,7 @@ import android.os.Handler;
 import android.os.SystemClock;
 import android.view.Surface;
 import android.view.WindowManager;
+import com.github.piasy.videosource.MatrixHelper;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -47,6 +48,7 @@ class Camera1Session implements CameraSession {
   private final CaptureFormat captureFormat;
   // Used only for stats. Only used on the camera thread.
   private final long constructionTimeNs; // Construction time of this class.
+  private final MatrixHelper matrixHelper = new MatrixHelper();
 
   private SessionState state;
   private boolean firstFrameReported = false;
@@ -261,12 +263,17 @@ class Camera1Session implements CameraSession {
         }
 
         int rotation = getFrameOrientation();
-        if (info.facing == android.hardware.Camera.CameraInfo.CAMERA_FACING_FRONT) {
-          // Undo the mirror that the OS "helps" us with.
-          // http://developer.android.com/reference/android/hardware/Camera.html#setDisplayOrientation(int)
-          transformMatrix = RendererCommon.multiplyMatrices(
-              transformMatrix, RendererCommon.horizontalFlipMatrix());
-        }
+
+        // make sure it appears in right orientation and flip using GlRectDrawer
+        matrixHelper.flip(transformMatrix, true, true);
+        matrixHelper.rotate(transformMatrix, rotation);
+
+        //if (info.facing == android.hardware.Camera.CameraInfo.CAMERA_FACING_FRONT) {
+        //  // Undo the mirror that the OS "helps" us with.
+        //  // http://developer.android.com/reference/android/hardware/Camera.html#setDisplayOrientation(int)
+        //  transformMatrix = RendererCommon.multiplyMatrices(
+        //      transformMatrix, RendererCommon.horizontalFlipMatrix());
+        //}
         events.onTextureFrameCaptured(Camera1Session.this, captureFormat.width,
             captureFormat.height, oesTextureId, transformMatrix, rotation, timestampNs);
       }

@@ -57,6 +57,8 @@ public class VideoSink implements VideoCapturer.CapturerObserver {
     public void onTextureFrameCaptured(final int width, final int height, final int oesTextureId,
             final float[] transformMatrix, final int rotation, final long timestamp) {
 
+        Logging.d(TAG, "onTextureFrameCaptured " + rotation);
+
         mMatrixHelper.flip(transformMatrix, mFlipHorizontal, mFlipVertical);
         mMatrixHelper.rotate(transformMatrix, mRotateDegree);
 

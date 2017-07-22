@@ -575,8 +575,7 @@ public class EglRenderer implements VideoRenderer.Callbacks {
     }
 
     final long startTimeNs = System.nanoTime();
-    final float[] texMatrix =
-        RendererCommon.rotateTextureMatrix(frame.samplingMatrix, frame.rotationDegree);
+    final float[] texMatrix = frame.samplingMatrix;
     final float[] drawMatrix;
 
     // After a surface size change, the EGLSurface might still have a buffer of the old size in the

@@ -214,16 +214,19 @@ class Camera2Session implements CameraSession {
               }
 
               int rotation = getFrameOrientation();
-              if (isCameraFrontFacing) {
-                // Undo the mirror that the OS "helps" us with.
-                // http://developer.android.com/reference/android/hardware/Camera.html#setDisplayOrientation(int)
-                transformMatrix = RendererCommon.multiplyMatrices(
-                    transformMatrix, RendererCommon.horizontalFlipMatrix());
-              }
 
-              // Undo camera orientation - we report it as rotation instead.
-              transformMatrix =
-                  RendererCommon.rotateTextureMatrix(transformMatrix, -cameraOrientation);
+              // make sure it appears in right orientation and flip using GlRectDrawer
+
+              //if (isCameraFrontFacing) {
+              //  // Undo the mirror that the OS "helps" us with.
+              //  // http://developer.android.com/reference/android/hardware/Camera.html#setDisplayOrientation(int)
+              //  transformMatrix = RendererCommon.multiplyMatrices(
+              //      transformMatrix, RendererCommon.horizontalFlipMatrix());
+              //}
+              //
+              //// Undo camera orientation - we report it as rotation instead.
+              //transformMatrix =
+              //    RendererCommon.rotateTextureMatrix(transformMatrix, -cameraOrientation);
 
               events.onTextureFrameCaptured(Camera2Session.this, captureFormat.width,
                   captureFormat.height, oesTextureId, transformMatrix, rotation, timestampNs);
