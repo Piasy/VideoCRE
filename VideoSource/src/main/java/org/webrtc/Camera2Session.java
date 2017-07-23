@@ -57,6 +57,7 @@ class Camera2Session implements CameraSession {
   private final int framerate;
 
   // Initialized at start
+  private int activityOrientation;
   private CameraCharacteristics cameraCharacteristics;
   private int cameraOrientation;
   private boolean isCameraFrontFacing;
@@ -318,6 +319,7 @@ class Camera2Session implements CameraSession {
     this.width = width;
     this.height = height;
     this.framerate = framerate;
+    this.activityOrientation = getDeviceOrientation();
 
     start();
   }
@@ -453,7 +455,8 @@ class Camera2Session implements CameraSession {
   }
 
   private int getFrameOrientation() {
-    int rotation = getDeviceOrientation();
+    //int rotation = getDeviceOrientation();
+    int rotation = activityOrientation;
     if (!isCameraFrontFacing) {
       rotation = 360 - rotation;
     }

@@ -47,6 +47,7 @@ public class MediaCodecVideoEncoder {
 
   private static final int MEDIA_CODEC_RELEASE_TIMEOUT_MS = 5000; // Timeout for codec releasing.
   private static final int DEQUEUE_TIMEOUT = 0; // Non-blocking, no wait.
+  private static final int OUTPUT_THREAD_DEQUEUE_TIMEOUT_US = 3000; // 3 ms
   private static final int BITRATE_ADJUSTMENT_FPS = 30;
   private static final int MAXIMUM_INITIAL_FPS = 30;
   private static final double BITRATE_CORRECTION_SEC = 3.0;
@@ -79,6 +80,9 @@ public class MediaCodecVideoEncoder {
 
   // Thread that delivers encoded frames to the user callback.
   private Thread outputThread;
+  private MediaCodec.BufferInfo outputBufferInfo = new MediaCodec.BufferInfo();
+  private ByteBuffer keyFrameData = ByteBuffer.allocateDirect(10240); // pre-allocate 10 KB
+  private OutputBufferInfo outputFrame = new OutputBufferInfo();
   private MediaCodecCallback callback;
   // Whether the encoder is running.  Volatile so that the output thread can watch this value and
   // exit when the encoder stops.
@@ -754,88 +758,41 @@ public class MediaCodecVideoEncoder {
 
   // Helper struct for dequeueOutputBuffer() below.
   public static class OutputBufferInfo {
-    public OutputBufferInfo(
-        int index, ByteBuffer buffer, boolean isKeyFrame, long presentationTimestampUs) {
+    private int index;
+    private ByteBuffer buffer;
+    private int size;
+    private boolean isKeyFrame;
+    private long presentationTimestampUs;
+
+    private OutputBufferInfo fill(
+        int index, ByteBuffer buffer, int size, boolean isKeyFrame, long presentationTimestampUs) {
       this.index = index;
       this.buffer = buffer;
+      this.size = size;
       this.isKeyFrame = isKeyFrame;
       this.presentationTimestampUs = presentationTimestampUs;
+
+      return this;
     }
 
-    public final int index;
-    public final ByteBuffer buffer;
-    public final boolean isKeyFrame;
-    public final long presentationTimestampUs;
-  }
+    public int index() {
+      return index;
+    }
 
-  // Dequeue and return an output buffer, or null if no output is ready.  Return
-  // a fake OutputBufferInfo with index -1 if the codec is no longer operable.
-  public OutputBufferInfo dequeueOutputBuffer() {
-    checkOnMediaCodecThread();
-    try {
-      MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
-      int result = mediaCodec.dequeueOutputBuffer(info, DEQUEUE_TIMEOUT);
-      // Check if this is config frame and save configuration data.
-      if (result >= 0) {
-        boolean isConfigFrame = (info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0;
-        if (isConfigFrame) {
-          Logging.d(TAG, "Config frame generated. Offset: " + info.offset + ". Size: " + info.size);
-          configData = ByteBuffer.allocateDirect(info.size);
-          outputBuffers[result].position(info.offset);
-          outputBuffers[result].limit(info.offset + info.size);
-          configData.put(outputBuffers[result]);
-          // Log few SPS header bytes to check profile and level.
-          String spsData = "";
-          for (int i = 0; i < (info.size < 8 ? info.size : 8); i++) {
-            spsData += Integer.toHexString(configData.get(i) & 0xff) + " ";
-          }
-          Logging.d(TAG, spsData);
-          // Release buffer back.
-          mediaCodec.releaseOutputBuffer(result, false);
-          // Query next output.
-          result = mediaCodec.dequeueOutputBuffer(info, DEQUEUE_TIMEOUT);
-        }
-      }
-      if (result >= 0) {
-        // MediaCodec doesn't care about Buffer position/remaining/etc so we can
-        // mess with them to get a slice and avoid having to pass extra
-        // (BufferInfo-related) parameters back to C++.
-        ByteBuffer outputBuffer = outputBuffers[result].duplicate();
-        outputBuffer.position(info.offset);
-        outputBuffer.limit(info.offset + info.size);
-        reportEncodedFrame(info.size);
+    public ByteBuffer buffer() {
+      return buffer;
+    }
 
-        // Check key frame flag.
-        boolean isKeyFrame = (info.flags & MediaCodec.BUFFER_FLAG_SYNC_FRAME) != 0;
-        if (isKeyFrame) {
-          Logging.d(TAG, "Sync frame generated");
-        }
-        if (isKeyFrame && type == VideoCodecType.VIDEO_CODEC_H264) {
-          Logging.d(TAG, "Appending config frame of size " + configData.capacity()
-                  + " to output buffer with offset " + info.offset + ", size " + info.size);
-          // For H.264 key frame append SPS and PPS NALs at the start
-          ByteBuffer keyFrameBuffer = ByteBuffer.allocateDirect(configData.capacity() + info.size);
-          configData.rewind();
-          keyFrameBuffer.put(configData);
-          keyFrameBuffer.put(outputBuffer);
-          keyFrameBuffer.position(0);
-          return new OutputBufferInfo(result, keyFrameBuffer, isKeyFrame, info.presentationTimeUs);
-        } else {
-          return new OutputBufferInfo(
-              result, outputBuffer.slice(), isKeyFrame, info.presentationTimeUs);
-        }
-      } else if (result == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
-        outputBuffers = mediaCodec.getOutputBuffers();
-        return dequeueOutputBuffer();
-      } else if (result == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-        return dequeueOutputBuffer();
-      } else if (result == MediaCodec.INFO_TRY_AGAIN_LATER) {
-        return null;
-      }
-      throw new RuntimeException("dequeueOutputBuffer: " + result);
-    } catch (IllegalStateException e) {
-      Logging.e(TAG, "dequeueOutputBuffer failed", e);
-      return new OutputBufferInfo(-1, null, false, -1);
+    public int size() {
+      return size;
+    }
+
+    public boolean isKeyFrame() {
+      return isKeyFrame;
+    }
+
+    public long presentationTimestampUs() {
+      return presentationTimestampUs;
     }
   }
 
@@ -852,8 +809,8 @@ public class MediaCodecVideoEncoder {
 
   private void deliverEncodedImage() {
     try {
-      MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
-      int index = mediaCodec.dequeueOutputBuffer(info, DEQUEUE_TIMEOUT);
+      int index = mediaCodec.dequeueOutputBuffer(outputBufferInfo,
+              OUTPUT_THREAD_DEQUEUE_TIMEOUT_US);
       if (index < 0) {
         if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
           callback.onOutputFormatChanged(mediaCodec, mediaCodec.getOutputFormat());
@@ -862,48 +819,44 @@ public class MediaCodecVideoEncoder {
       }
 
       ByteBuffer codecOutputBuffer = mediaCodec.getOutputBuffers()[index];
-      codecOutputBuffer.position(info.offset);
-      codecOutputBuffer.limit(info.offset + info.size);
+      codecOutputBuffer.position(outputBufferInfo.offset);
+      codecOutputBuffer.limit(outputBufferInfo.offset + outputBufferInfo.size);
 
-      if ((info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
-        Logging.d(TAG, "Config frame generated. Offset: " + info.offset + ". Size: " + info.size);
-        configData = ByteBuffer.allocateDirect(info.size);
+      if ((outputBufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
+        Logging.d(TAG, "Config frame generated. Offset: " + outputBufferInfo.offset
+                       + ". Size: " + outputBufferInfo.size);
+        configData = ByteBuffer.allocateDirect(outputBufferInfo.size);
         configData.put(codecOutputBuffer);
         // Log few SPS header bytes to check profile and level.
         String spsData = "";
-        for (int i = 0; i < (info.size < 8 ? info.size : 8); i++) {
+        for (int i = 0; i < (outputBufferInfo.size < 8 ? outputBufferInfo.size : 8); i++) {
           spsData += Integer.toHexString(configData.get(i) & 0xff) + " ";
         }
         Logging.d(TAG, spsData);
       } else {
-        // MediaCodec doesn't care about Buffer position/remaining/etc so we can
-        // mess with them to get a slice and avoid having to pass extra
-        // (BufferInfo-related) parameters back to C++.
-        ByteBuffer outputBuffer = codecOutputBuffer.duplicate();
-        outputBuffer.position(info.offset);
-        outputBuffer.limit(info.offset + info.size);
-        reportEncodedFrame(info.size);
+        reportEncodedFrame(outputBufferInfo.size);
 
         // Check key frame flag.
-        boolean isKeyFrame = (info.flags & MediaCodec.BUFFER_FLAG_SYNC_FRAME) != 0;
-        if (isKeyFrame) {
-          Logging.d(TAG, "Sync frame generated");
-        }
+        boolean isKeyFrame = (outputBufferInfo.flags & MediaCodec.BUFFER_FLAG_SYNC_FRAME) != 0;
         if (isKeyFrame && type == VideoCodecType.VIDEO_CODEC_H264) {
-          Logging.d(TAG, "Appending config frame of size " + configData.capacity()
-                         + " to output buffer with offset " + info.offset + ", size " + info.size);
           // For H.264 key frame append SPS and PPS NALs at the start
-          ByteBuffer keyFrameBuffer = ByteBuffer.allocateDirect(configData.capacity() + info.size);
+          if (keyFrameData.capacity() < configData.capacity() + outputBufferInfo.size) {
+            // allocate double size
+            keyFrameData = ByteBuffer.allocateDirect(keyFrameData.capacity() * 2);
+          }
+          keyFrameData.position(0);
           configData.rewind();
-          keyFrameBuffer.put(configData);
-          keyFrameBuffer.put(outputBuffer);
-          keyFrameBuffer.position(0);
-          callback.onEncodedFrame(new OutputBufferInfo(index, keyFrameBuffer, isKeyFrame,
-                  info.presentationTimeUs), info);
+          keyFrameData.put(configData);
+          keyFrameData.put(codecOutputBuffer);
+          keyFrameData.position(0);
+          outputFrame.fill(index, keyFrameData, configData.capacity() + outputBufferInfo.size,
+                  isKeyFrame, outputBufferInfo.presentationTimeUs);
+          callback.onEncodedFrame(outputFrame, outputBufferInfo);
           releaseOutputBuffer(index);
         } else {
-          callback.onEncodedFrame(new OutputBufferInfo(index, outputBuffer.slice(), isKeyFrame,
-                  info.presentationTimeUs), info);
+          outputFrame.fill(index, codecOutputBuffer, outputBufferInfo.size, isKeyFrame,
+                  outputBufferInfo.presentationTimeUs);
+          callback.onEncodedFrame(outputFrame, outputBufferInfo);
           releaseOutputBuffer(index);
         }
       }

@@ -18,14 +18,12 @@ import org.webrtc.MediaCodecVideoEncoder;
 public class Mp4Recorder implements MediaCodecCallback {
     private static final String TAG = "Mp4Recorder";
 
-    private final boolean mPortrait;
     private final MediaMuxer mMediaMuxer;
 
     private int mTrackIndex;
     private boolean mMuxerStarted;
 
-    public Mp4Recorder(final boolean portrait, final File outputFile) throws IOException {
-        mPortrait = portrait;
+    public Mp4Recorder(final File outputFile) throws IOException {
         mMediaMuxer = new MediaMuxer(outputFile.getAbsolutePath(),
                 MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
     }
@@ -35,7 +33,7 @@ public class Mp4Recorder implements MediaCodecCallback {
             final MediaCodec.BufferInfo bufferInfo) {
         boolean configFrame = (bufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0;
         if (!configFrame) {
-            mMediaMuxer.writeSampleData(mTrackIndex, frame.buffer, bufferInfo);
+            mMediaMuxer.writeSampleData(mTrackIndex, frame.buffer(), bufferInfo);
         }
     }
 
@@ -50,11 +48,6 @@ public class Mp4Recorder implements MediaCodecCallback {
         int height = format.getInteger(MediaFormat.KEY_HEIGHT);
 
         Logging.d(TAG, "onOutputFormatChanged " + name + " " + width + "x" + height);
-
-        //int max = Math.max(width, height);
-        //int min = Math.min(width, height);
-        //format.setInteger(MediaFormat.KEY_WIDTH, mPortrait ? min : max);
-        //format.setInteger(MediaFormat.KEY_HEIGHT, mPortrait ? max : min);
 
         mTrackIndex = mMediaMuxer.addTrack(format);
         mMediaMuxer.start();

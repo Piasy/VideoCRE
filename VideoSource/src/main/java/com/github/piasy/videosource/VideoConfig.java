@@ -13,19 +13,31 @@ public abstract class VideoConfig {
         return new AutoValue_VideoConfig.Builder();
     }
 
-    public abstract int videoWidth();
+    public abstract int previewWidth();
 
-    public abstract int videoHeight();
+    public abstract int previewHeight();
 
-    public abstract int videoFps();
+    public abstract int outputWidth();
+
+    public abstract int outputHeight();
+
+    public abstract int fps();
+
+    public abstract int outputBitrate();
 
     @AutoValue.Builder
     public abstract static class Builder {
-        public abstract Builder videoWidth(int videoWidth);
+        public abstract Builder previewWidth(int previewWidth);
 
-        public abstract Builder videoHeight(int videoHeight);
+        public abstract Builder previewHeight(int previewHeight);
 
-        public abstract Builder videoFps(int videoFps);
+        public abstract Builder outputWidth(int outputWidth);
+
+        public abstract Builder outputHeight(int outputHeight);
+
+        public abstract Builder fps(int fps);
+
+        public abstract Builder outputBitrate(int outputBitrate);
 
         public abstract VideoConfig build();
     }

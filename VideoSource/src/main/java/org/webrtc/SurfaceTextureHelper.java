@@ -86,6 +86,7 @@ public class SurfaceTextureHelper {
   private OnTextureFrameAvailableListener listener;
   // The possible states of this class.
   private boolean hasPendingTexture = false;
+  private float[] transformMatrix = new float[16];
   private volatile boolean isTextureInUse = false;
   private boolean isQuitting = false;
   // |pendingListener| is set in setListener() and the runnable is posted to the handler thread.
@@ -258,7 +259,6 @@ public class SurfaceTextureHelper {
 
     updateTexImage();
 
-    final float[] transformMatrix = new float[16];
     surfaceTexture.getTransformMatrix(transformMatrix);
     final long timestampNs = surfaceTexture.getTimestamp();
     listener.onTextureFrameAvailable(oesTextureId, transformMatrix, timestampNs);

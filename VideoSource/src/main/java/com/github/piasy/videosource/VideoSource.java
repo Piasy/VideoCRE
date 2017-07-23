@@ -75,8 +75,8 @@ public class VideoSource {
         mExecutor.execute(new Runnable() {
             @Override
             public void run() {
-                mVideoCapturer.startCapture(mVideoConfig.videoWidth(), mVideoConfig.videoHeight(),
-                        mVideoConfig.videoFps());
+                mVideoCapturer.startCapture(mVideoConfig.previewWidth(),
+                        mVideoConfig.previewHeight(), mVideoConfig.fps());
                 mVideoCapturerStopped = false;
             }
         });

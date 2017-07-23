@@ -13,6 +13,7 @@ package org.webrtc;
 import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.opengl.GLES20;
+import android.opengl.Matrix;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -31,7 +32,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class EglRenderer implements VideoRenderer.Callbacks {
   private static final String TAG = "EglRenderer";
-  private static final long LOG_INTERVAL_SEC = 4;
+  private static final long LOG_INTERVAL_SEC = 5;
   private static final int MAX_SURFACE_CLEAR_COUNT = 3;
 
   public interface FrameListener { void onFrame(Bitmap frame); }
@@ -105,6 +106,8 @@ public class EglRenderer implements VideoRenderer.Callbacks {
   // These variables are synchronized on |layoutLock|.
   private final Object layoutLock = new Object();
   private float layoutAspectRatio;
+  private float[] layoutMatrix = new float[16];
+  private float[] drawMatrix = new float[16];
   // If true, mirrors the video stream horizontally.
   private boolean mirror;
 
@@ -576,7 +579,6 @@ public class EglRenderer implements VideoRenderer.Callbacks {
 
     final long startTimeNs = System.nanoTime();
     final float[] texMatrix = frame.samplingMatrix;
-    final float[] drawMatrix;
 
     // After a surface size change, the EGLSurface might still have a buffer of the old size in the
     // pipeline. Querying the EGLSurface will show if the underlying buffer dimensions haven't yet
@@ -584,10 +586,9 @@ public class EglRenderer implements VideoRenderer.Callbacks {
     final int drawnFrameWidth;
     final int drawnFrameHeight;
     synchronized (layoutLock) {
-      final float[] layoutMatrix;
       if (layoutAspectRatio > 0) {
         final float frameAspectRatio = frame.rotatedWidth() / (float) frame.rotatedHeight();
-        layoutMatrix = RendererCommon.getLayoutMatrix(mirror, frameAspectRatio, layoutAspectRatio);
+        RendererCommon.getLayoutMatrix(layoutMatrix, mirror, frameAspectRatio, layoutAspectRatio);
         if (frameAspectRatio > layoutAspectRatio) {
           drawnFrameWidth = (int) (frame.rotatedHeight() * layoutAspectRatio);
           drawnFrameHeight = frame.rotatedHeight();
@@ -601,7 +602,7 @@ public class EglRenderer implements VideoRenderer.Callbacks {
         drawnFrameWidth = frame.rotatedWidth();
         drawnFrameHeight = frame.rotatedHeight();
       }
-      drawMatrix = RendererCommon.multiplyMatrices(texMatrix, layoutMatrix);
+      Matrix.multiplyMM(drawMatrix, 0, texMatrix, 0, layoutMatrix, 0);
     }
 
     boolean shouldUploadYuvTextures = false;

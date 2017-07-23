@@ -237,8 +237,8 @@ public class RendererCommon {
    * Returns layout transformation matrix that applies an optional mirror effect and compensates
    * for video vs display aspect ratio.
    */
-  public static float[] getLayoutMatrix(
-      boolean mirror, float videoAspectRatio, float displayAspectRatio) {
+  public static void getLayoutMatrix(
+          final float matrix[], boolean mirror, float videoAspectRatio, float displayAspectRatio) {
     float scaleX = 1;
     float scaleY = 1;
     // Scale X or Y dimension so that video and display size have same aspect ratio.
@@ -251,11 +251,9 @@ public class RendererCommon {
     if (mirror) {
       scaleX *= -1;
     }
-    final float matrix[] = new float[16];
     Matrix.setIdentityM(matrix, 0);
     Matrix.scaleM(matrix, 0, scaleX, scaleY, 1);
     adjustOrigin(matrix);
-    return matrix;
   }
 
   /** Converts a float[16] matrix array to android.graphics.Matrix. */

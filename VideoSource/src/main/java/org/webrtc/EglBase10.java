@@ -35,6 +35,8 @@ class EglBase10 extends EglBase {
   private EGLConfig eglConfig;
   private EGLDisplay eglDisplay;
   private EGLSurface eglSurface = EGL10.EGL_NO_SURFACE;
+  final int widthArray[] = new int[1];
+  final int heightArray[] = new int[1];
 
   // EGL wrapper for an actual EGLContext.
   public static class Context extends EglBase.Context {
@@ -176,14 +178,12 @@ class EglBase10 extends EglBase {
 
   @Override
   public int surfaceWidth() {
-    final int widthArray[] = new int[1];
     egl.eglQuerySurface(eglDisplay, eglSurface, EGL10.EGL_WIDTH, widthArray);
     return widthArray[0];
   }
 
   @Override
   public int surfaceHeight() {
-    final int heightArray[] = new int[1];
     egl.eglQuerySurface(eglDisplay, eglSurface, EGL10.EGL_HEIGHT, heightArray);
     return heightArray[0];
   }

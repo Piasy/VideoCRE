@@ -28,9 +28,12 @@ public class VideoActivity extends AppCompatActivity {
         setContentView(R.layout.activity_video);
 
         VideoConfig config = VideoConfig.builder()
-                .videoWidth(1280)
-                .videoHeight(720)
-                .videoFps(30)
+                .previewWidth(1280)
+                .previewHeight(720)
+                .outputWidth(448)
+                .outputHeight(800)
+                .fps(30)
+                .outputBitrate(800)
                 .build();
         VideoCapturer capturer = createVideoCapturer();
 

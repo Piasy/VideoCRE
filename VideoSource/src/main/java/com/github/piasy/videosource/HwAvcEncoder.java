@@ -2,10 +2,10 @@ package com.github.piasy.videosource;
 
 import android.media.MediaCodec;
 import android.media.MediaFormat;
+import android.os.Handler;
+import android.os.HandlerThread;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import org.webrtc.EglBase;
 import org.webrtc.MediaCodecVideoEncoder;
 import org.webrtc.VideoRenderer;
@@ -16,30 +16,37 @@ import org.webrtc.VideoRenderer;
 
 public class HwAvcEncoder implements VideoRenderer.Callbacks, MediaCodecCallback {
 
-    private final ExecutorService mMediaCodecService;
+    private final HandlerThread mMediaCodecThread;
+    private final Handler mMediaCodecHandler;
     private final MediaCodecVideoEncoder mVideoEncoder;
+    private final VideoConfig mVideoConfig;
     private final List<MediaCodecCallback> mMediaCodecCallbacks;
 
-    public HwAvcEncoder(final MediaCodecCallback... callbacks) {
-        mMediaCodecService = Executors.newSingleThreadExecutor();
+    public HwAvcEncoder(final VideoConfig videoConfig, final MediaCodecCallback... callbacks) {
+        mVideoConfig = videoConfig;
+        mMediaCodecThread = new HandlerThread("HwAvcEncoderThread");
+        mMediaCodecThread.start();
+        mMediaCodecHandler = new Handler(mMediaCodecThread.getLooper());
         mVideoEncoder = new MediaCodecVideoEncoder();
         mMediaCodecCallbacks = Arrays.asList(callbacks);
     }
 
     public void start(final EglBase eglBase) {
-        mMediaCodecService.execute(new Runnable() {
+        mMediaCodecHandler.post(new Runnable() {
             @Override
             public void run() {
                 mVideoEncoder.initEncode(MediaCodecVideoEncoder.VideoCodecType.VIDEO_CODEC_H264,
                         MediaCodecVideoEncoder.H264Profile.CONSTRAINED_BASELINE.getValue(),
-                        360, 640, 500, 60, eglBase.getEglBaseContext(), HwAvcEncoder.this);
+                        mVideoConfig.outputWidth(), mVideoConfig.outputHeight(),
+                        mVideoConfig.outputBitrate(), mVideoConfig.fps(),
+                        eglBase.getEglBaseContext(), HwAvcEncoder.this);
             }
         });
     }
 
     @Override
     public void renderFrame(final VideoRenderer.I420Frame frame) {
-        mMediaCodecService.execute(new Runnable() {
+        mMediaCodecHandler.post(new Runnable() {
             @Override
             public void run() {
                 mVideoEncoder.encodeTexture(false, frame.textureId, frame.samplingMatrix,
@@ -49,11 +56,11 @@ public class HwAvcEncoder implements VideoRenderer.Callbacks, MediaCodecCallback
     }
 
     public void destroy() {
-        mMediaCodecService.execute(new Runnable() {
+        mMediaCodecHandler.post(new Runnable() {
             @Override
             public void run() {
                 mVideoEncoder.release();
-                mMediaCodecService.shutdown();
+                mMediaCodecThread.quit();
             }
         });
     }
@@ -61,15 +68,15 @@ public class HwAvcEncoder implements VideoRenderer.Callbacks, MediaCodecCallback
     @Override
     public void onEncodedFrame(final MediaCodecVideoEncoder.OutputBufferInfo frame,
             final MediaCodec.BufferInfo bufferInfo) {
-        for (MediaCodecCallback callback : mMediaCodecCallbacks) {
-            callback.onEncodedFrame(frame, bufferInfo);
+        for (int i = 0, n = mMediaCodecCallbacks.size(); i < n; i++) {
+            mMediaCodecCallbacks.get(i).onEncodedFrame(frame, bufferInfo);
         }
     }
 
     @Override
     public void onOutputFormatChanged(final MediaCodec codec, final MediaFormat format) {
-        for (MediaCodecCallback callback : mMediaCodecCallbacks) {
-            callback.onOutputFormatChanged(codec, format);
+        for (int i = 0, n = mMediaCodecCallbacks.size(); i < n; i++) {
+            mMediaCodecCallbacks.get(i).onOutputFormatChanged(codec, format);
         }
     }
 }

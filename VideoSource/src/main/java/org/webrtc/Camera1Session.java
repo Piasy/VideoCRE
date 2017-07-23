@@ -41,6 +41,7 @@ class Camera1Session implements CameraSession {
   private final Events events;
   private final boolean captureToTexture;
   private final Context applicationContext;
+  private int activityOrientation;
   private final SurfaceTextureHelper surfaceTextureHelper;
   private final int cameraId;
   private final android.hardware.Camera camera;
@@ -164,6 +165,7 @@ class Camera1Session implements CameraSession {
     this.info = info;
     this.captureFormat = captureFormat;
     this.constructionTimeNs = constructionTimeNs;
+    this.activityOrientation = getDeviceOrientation();
 
     startCapturing();
 
@@ -335,7 +337,8 @@ class Camera1Session implements CameraSession {
   }
 
   private int getFrameOrientation() {
-    int rotation = getDeviceOrientation();
+    //int rotation = getDeviceOrientation();
+    int rotation = activityOrientation;
     if (info.facing == android.hardware.Camera.CameraInfo.CAMERA_FACING_BACK) {
       rotation = 360 - rotation;
     }

@@ -9,6 +9,9 @@ import org.webrtc.MediaCodecVideoEncoder;
  */
 
 public interface MediaCodecCallback {
+    /**
+     * must consume it synchronously.
+     */
     void onEncodedFrame(MediaCodecVideoEncoder.OutputBufferInfo frame,
             MediaCodec.BufferInfo bufferInfo);
 
