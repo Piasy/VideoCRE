@@ -114,6 +114,7 @@ public class VideoSource {
     }
 
     public void destroy() {
+        mVideoCapturer.dispose();
         mSurfaceTextureHelper.dispose();
         mEglBase.release();
         mExecutor.shutdown();

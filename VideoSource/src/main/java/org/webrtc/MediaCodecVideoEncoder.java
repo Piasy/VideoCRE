@@ -531,6 +531,7 @@ public class MediaCodecVideoEncoder {
         // Create an input surface and keep a reference since we must release the surface when done.
         inputSurface = mediaCodec.createInputSurface();
         eglBase.createSurface(inputSurface);
+        eglBase.makeCurrent();
         drawer = new GlRectDrawer();
       }
       mediaCodec.start();
@@ -603,7 +604,8 @@ public class MediaCodecVideoEncoder {
     checkOnMediaCodecThread();
     try {
       checkKeyFrameRequired(isKeyframe, presentationTimestampUs);
-      eglBase.makeCurrent();
+      // makeCurrent once when create eglBase is enough
+      //eglBase.makeCurrent();
       // TODO(perkj): glClear() shouldn't be necessary since every pixel is covered anyway,
       // but it's a workaround for bug webrtc:5147.
       GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);

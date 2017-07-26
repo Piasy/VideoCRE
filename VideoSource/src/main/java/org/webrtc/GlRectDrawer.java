@@ -170,6 +170,7 @@ public class GlRectDrawer implements RendererCommon.GlDrawer {
     final Shader shader;
     if (shaders.containsKey(fragmentShader)) {
       shader = shaders.get(fragmentShader);
+      shader.glShader.useProgram();
     } else {
       // Lazy allocation.
       shader = new Shader(fragmentShader);
@@ -192,7 +193,6 @@ public class GlRectDrawer implements RendererCommon.GlDrawer {
       shader.glShader.setVertexAttribArray("in_pos", 2, FULL_RECTANGLE_BUF);
       shader.glShader.setVertexAttribArray("in_tc", 2, FULL_RECTANGLE_TEX_BUF);
     }
-    shader.glShader.useProgram();
     // Copy the texture transformation matrix over.
     GLES20.glUniformMatrix4fv(shader.texMatrixLocation, 1, false, texMatrix, 0);
   }
