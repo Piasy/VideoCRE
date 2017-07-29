@@ -4,7 +4,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         >
-    <com.github.piasy.videosource.example.MediaLayout
+    <com.github.piasy.videocre.example.MediaLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             >
@@ -26,7 +26,7 @@
                 android:layout_height="200dp"
                 android:layout_marginTop="210dp"
                 />-->
-    </com.github.piasy.videosource.example.MediaLayout>
+    </com.github.piasy.videocre.example.MediaLayout>
 
     <GridLayout
             android:layout_width="match_parent"
