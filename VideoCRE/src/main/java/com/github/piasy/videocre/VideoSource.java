@@ -1,8 +1,6 @@
 package com.github.piasy.videocre;
 
 import android.content.Context;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import org.webrtc.CameraVideoCapturer;
 import org.webrtc.EglBase;
 import org.webrtc.Logging;
@@ -24,7 +22,6 @@ public class VideoSource {
 
     private final Context mAppContext;
     private final EglBase mEglBase;
-    private final ExecutorService mExecutor;
 
     private VideoCapturer mVideoCapturer;
     private SurfaceTextureHelper mSurfaceTextureHelper;
@@ -35,7 +32,6 @@ public class VideoSource {
             final VideoCapturer capturer, final VideoCapturer.CapturerObserver capturerObserver) {
         mAppContext = appContext;
         mEglBase = EglBase.create();
-        mExecutor = Executors.newSingleThreadExecutor();
 
         mVideoConfig = config;
         final EglBase.Context eglContext = mEglBase.getEglBaseContext();
@@ -72,41 +68,27 @@ public class VideoSource {
     }
 
     public void start() {
-        mExecutor.execute(new Runnable() {
-            @Override
-            public void run() {
-                mVideoCapturer.startCapture(mVideoConfig.previewWidth(),
-                        mVideoConfig.previewHeight(), mVideoConfig.fps());
-                mVideoCapturerStopped = false;
-            }
-        });
+        mVideoCapturerStopped = false;
+        mVideoCapturer.startCapture(mVideoConfig.previewWidth(),
+                mVideoConfig.previewHeight(), mVideoConfig.fps());
     }
 
     public void switchCamera() {
-        mExecutor.execute(new Runnable() {
-            @Override
-            public void run() {
-                if (mVideoCapturer instanceof CameraVideoCapturer) {
-                    ((CameraVideoCapturer) mVideoCapturer).switchCamera(null);
-                }
-            }
-        });
+        if (mVideoCapturer instanceof CameraVideoCapturer) {
+            ((CameraVideoCapturer) mVideoCapturer).switchCamera(null);
+        }
     }
 
     public void stop() {
-        mExecutor.execute(new Runnable() {
-            @Override
-            public void run() {
-                if (mVideoCapturer != null && !mVideoCapturerStopped) {
-                    Logging.d(TAG, "Stop video source.");
-                    try {
-                        mVideoCapturer.stopCapture();
-                    } catch (InterruptedException e) {
-                    }
-                    mVideoCapturerStopped = true;
-                }
+        if (mVideoCapturer != null && !mVideoCapturerStopped) {
+            Logging.d(TAG, "Stop video source.");
+            try {
+                mVideoCapturer.stopCapture();
+            } catch (InterruptedException e) {
+                Logging.e(TAG, "stop", e);
             }
-        });
+            mVideoCapturerStopped = true;
+        }
     }
 
     public EglBase getRootEglBase() {
@@ -117,6 +99,5 @@ public class VideoSource {
         mVideoCapturer.dispose();
         mSurfaceTextureHelper.dispose();
         mEglBase.release();
-        mExecutor.shutdown();
     }
 }
