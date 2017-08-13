@@ -882,7 +882,9 @@ public class MediaCodecVideoEncoder {
           // For H.264 key frame append SPS and PPS NALs at the start
           if (keyFrameData.capacity() < configData.capacity() + outputBufferInfo.size) {
             // allocate double size
-            keyFrameData = ByteBuffer.allocateDirect(keyFrameData.capacity() * 2);
+            int newSize = Math.max(keyFrameData.capacity() * 2,
+                    configData.capacity() + outputBufferInfo.size);
+            keyFrameData = ByteBuffer.allocateDirect(newSize);
           }
           keyFrameData.position(0);
           configData.rewind();
