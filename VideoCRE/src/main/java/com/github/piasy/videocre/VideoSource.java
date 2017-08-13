@@ -6,6 +6,7 @@ import org.webrtc.EglBase;
 import org.webrtc.Logging;
 import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.VideoCapturer;
+import org.webrtc.VideoFrame;
 
 /**
  * Created by Piasy{github.com/Piasy} on 20/07/2017.
@@ -63,6 +64,11 @@ public class VideoSource {
                         capturerObserver.onTextureFrameCaptured(width, height, oesTextureId,
                                 transformMatrix, rotation, timestamp);
                         mSurfaceTextureHelper.returnTextureFrame();
+                    }
+
+                    @Override
+                    public void onFrameCaptured(final VideoFrame frame) {
+                        capturerObserver.onFrameCaptured(frame);
                     }
                 });
     }

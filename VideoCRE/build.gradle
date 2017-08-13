@@ -17,9 +17,14 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
 }
 
 dependencies {
     annotationProcessor "com.google.auto.value:auto-value:1.4.1"
-    provided "com.google.auto.value:auto-value:1.4.1"
+    compileOnly "com.google.auto.value:auto-value:1.4.1"
 }

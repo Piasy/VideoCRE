@@ -130,14 +130,6 @@ public class EglRenderer implements VideoRenderer.Callbacks {
   // Used for bitmap capturing.
   private GlTextureFrameBuffer bitmapTextureFramebuffer;
 
-  // Runnable for posting frames to render thread.
-  private final Runnable renderFrameRunnable = new Runnable() {
-    @Override
-    public void run() {
-      renderFrameOnRenderThread();
-    }
-  };
-
   private final Runnable logStatisticsRunnable = new Runnable() {
     @Override
     public void run() {
@@ -183,19 +175,16 @@ public class EglRenderer implements VideoRenderer.Callbacks {
       // Create EGL context on the newly created render thread. It should be possibly to create the
       // context on this thread and make it current on the render thread, but this causes failure on
       // some Marvel based JB devices. https://bugs.chromium.org/p/webrtc/issues/detail?id=6350.
-      ThreadUtils.invokeAtFrontUninterruptibly(renderThreadHandler, new Runnable() {
-        @Override
-        public void run() {
-          // If sharedContext is null, then texture frames are disabled. This is typically for old
-          // devices that might not be fully spec compliant, so force EGL 1.0 since EGL 1.4 has
-          // caused trouble on some weird devices.
-          if (sharedContext == null) {
-            logD("EglBase10.create context");
-            eglBase = EglBase.createEgl10(configAttributes);
-          } else {
-            logD("EglBase.create shared context");
-            eglBase = EglBase.create(sharedContext, configAttributes);
-          }
+      ThreadUtils.invokeAtFrontUninterruptibly(renderThreadHandler, () -> {
+        // If sharedContext is null, then texture frames are disabled. This is typically for old
+        // devices that might not be fully spec compliant, so force EGL 1.0 since EGL 1.4 has
+        // caused trouble on some weird devices.
+        if (sharedContext == null) {
+          logD("EglBase10.create context");
+          eglBase = EglBase.createEgl10(configAttributes);
+        } else {
+          logD("EglBase.create shared context");
+          eglBase = EglBase.create(sharedContext, configAttributes);
         }
       });
       renderThreadHandler.post(eglSurfaceCreationRunnable);
@@ -235,35 +224,29 @@ public class EglRenderer implements VideoRenderer.Callbacks {
       }
       renderThreadHandler.removeCallbacks(logStatisticsRunnable);
       // Release EGL and GL resources on render thread.
-      renderThreadHandler.postAtFrontOfQueue(new Runnable() {
-        @Override
-        public void run() {
-          if (drawer != null) {
-            drawer.release();
-            drawer = null;
-          }
-          yuvUploader.release();
-          if (bitmapTextureFramebuffer != null) {
-            bitmapTextureFramebuffer.release();
-            bitmapTextureFramebuffer = null;
-          }
-          if (eglBase != null) {
-            logD("eglBase detach and release.");
-            eglBase.detachCurrent();
-            eglBase.release();
-            eglBase = null;
-          }
-          eglCleanupBarrier.countDown();
+      renderThreadHandler.postAtFrontOfQueue(() -> {
+        if (drawer != null) {
+          drawer.release();
+          drawer = null;
         }
+        yuvUploader.release();
+        if (bitmapTextureFramebuffer != null) {
+          bitmapTextureFramebuffer.release();
+          bitmapTextureFramebuffer = null;
+        }
+        if (eglBase != null) {
+          logD("eglBase detach and release.");
+          eglBase.detachCurrent();
+          eglBase.release();
+          eglBase = null;
+        }
+        eglCleanupBarrier.countDown();
       });
       final Looper renderLooper = renderThreadHandler.getLooper();
       // TODO(magjed): Replace this post() with renderLooper.quitSafely() when API support >= 18.
-      renderThreadHandler.post(new Runnable() {
-        @Override
-        public void run() {
-          logD("Quitting render thread.");
-          renderLooper.quit();
-        }
+      renderThreadHandler.post(() -> {
+        logD("Quitting render thread.");
+        renderLooper.quit();
       });
       // Don't accept any more frames or messages to the render thread.
       renderThreadHandler = null;
@@ -400,13 +383,10 @@ public class EglRenderer implements VideoRenderer.Callbacks {
    */
   public void addFrameListener(final FrameListener listener, final float scale,
       final RendererCommon.GlDrawer drawerParam, final boolean applyFpsReduction) {
-    postToRenderThread(new Runnable() {
-      @Override
-      public void run() {
-        final RendererCommon.GlDrawer listenerDrawer = drawerParam == null ? drawer : drawerParam;
-        frameListeners.add(
-            new FrameListenerAndParams(listener, scale, listenerDrawer, applyFpsReduction));
-      }
+    postToRenderThread(() -> {
+      final RendererCommon.GlDrawer listenerDrawer = drawerParam == null ? drawer : drawerParam;
+      frameListeners.add(
+          new FrameListenerAndParams(listener, scale, listenerDrawer, applyFpsReduction));
     });
   }
 
@@ -422,15 +402,12 @@ public class EglRenderer implements VideoRenderer.Callbacks {
       throw new RuntimeException("removeFrameListener must not be called on the render thread.");
     }
     final CountDownLatch latch = new CountDownLatch(1);
-    postToRenderThread(new Runnable() {
-      @Override
-      public void run() {
-        latch.countDown();
-        final Iterator<FrameListenerAndParams> iter = frameListeners.iterator();
-        while (iter.hasNext()) {
-          if (iter.next().listener == listener) {
-            iter.remove();
-          }
+    postToRenderThread(() -> {
+      latch.countDown();
+      final Iterator<FrameListenerAndParams> iter = frameListeners.iterator();
+      while (iter.hasNext()) {
+        if (iter.next().listener == listener) {
+          iter.remove();
         }
       }
     });
@@ -456,7 +433,7 @@ public class EglRenderer implements VideoRenderer.Callbacks {
           VideoRenderer.renderFrameDone(pendingFrame);
         }
         pendingFrame = frame;
-        renderThreadHandler.post(renderFrameRunnable);
+        renderThreadHandler.post(this ::renderFrameOnRenderThread);
       }
     }
     if (dropOldFrame) {
@@ -476,15 +453,12 @@ public class EglRenderer implements VideoRenderer.Callbacks {
     synchronized (handlerLock) {
       if (renderThreadHandler != null) {
         renderThreadHandler.removeCallbacks(eglSurfaceCreationRunnable);
-        renderThreadHandler.postAtFrontOfQueue(new Runnable() {
-          @Override
-          public void run() {
-            if (eglBase != null) {
-              eglBase.detachCurrent();
-              eglBase.releaseSurface();
-            }
-            completionCallback.run();
+        renderThreadHandler.postAtFrontOfQueue(() -> {
+          if (eglBase != null) {
+            eglBase.detachCurrent();
+            eglBase.releaseSurface();
           }
+          completionCallback.run();
         });
         return;
       }
@@ -527,12 +501,7 @@ public class EglRenderer implements VideoRenderer.Callbacks {
       if (renderThreadHandler == null) {
         return;
       }
-      renderThreadHandler.postAtFrontOfQueue(new Runnable() {
-        @Override
-        public void run() {
-          clearSurfaceOnRenderThread(r, g, b, a);
-        }
-      });
+      renderThreadHandler.postAtFrontOfQueue(() -> clearSurfaceOnRenderThread(r, g, b, a));
     }
   }
 

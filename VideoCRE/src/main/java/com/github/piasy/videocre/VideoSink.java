@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.webrtc.Logging;
 import org.webrtc.VideoCapturer;
+import org.webrtc.VideoFrame;
 import org.webrtc.VideoRenderer;
 
 /**
@@ -64,5 +65,9 @@ public class VideoSink implements VideoCapturer.CapturerObserver {
         for (int i = 0, n = mCallbacks.size(); i < n; i++) {
             mCallbacks.get(i).renderFrame(frame);
         }
+    }
+
+    @Override
+    public void onFrameCaptured(final VideoFrame frame) {
     }
 }

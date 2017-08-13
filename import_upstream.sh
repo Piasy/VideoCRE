@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 UPSTREAM=/Users/piasy/src/CameraApps/AppRTC-Android/libjingle_peerconnection/src/main/java/org/webrtc
-DST=/Users/piasy/src/CameraApps/VideoSource/VideoCRE/src/main/java/org/webrtc
+DST=/Users/piasy/src/CameraApps/VideoCRE/VideoCRE/src/main/java/org/webrtc
 
 cp ${UPSTREAM}/Camera1Capturer.java ${DST}/
 cp ${UPSTREAM}/Camera1Enumerator.java ${DST}/
@@ -32,6 +32,7 @@ cp /Users/piasy/src/CameraApps/AppRTC-Android/base_java/src/main/java/org/webrtc
 cp ${UPSTREAM}/ScreenCapturerAndroid.java ${DST}/
 cp ${UPSTREAM}/SurfaceTextureHelper.java ${DST}/
 cp ${UPSTREAM}/SurfaceViewRenderer.java ${DST}/
+cp ${UPSTREAM}/TextureBufferImpl.java ${DST}/
 cp /Users/piasy/src/CameraApps/AppRTC-Android/base_java/src/main/java/org/webrtc/ThreadUtils.java ${DST}/
 cp ${UPSTREAM}/VideoCapturer.java ${DST}/
 cp ${UPSTREAM}/VideoFrame.java ${DST}/
